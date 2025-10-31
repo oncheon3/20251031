@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8" />
+    <title>Efficient Frontier 분석</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}" />
+    <script src="https://cdn.plot.ly/plotly-2.35.2.min.js" defer></script>
+    <script defer>
+        document.addEventListener('DOMContentLoaded', () => {
+            const frontier = {{ frontier | tojson }};
+            const minPortfolio = {{ min_portfolio | tojson }};
+            const maxPortfolio = {{ max_portfolio | tojson }};
+            const assets = {{ assets | tojson }};
+
+            const frontierTrace = {
+                x: frontier.map(point => point.risk),
+                y: frontier.map(point => point.return),
+                mode: 'markers',
+                type: 'scatter',
+                name: 'Efficient Frontier',
+                marker: {
+                    color: '#2171b5',
+                    size: 6,
+                    opacity: 0.6
+                },
+                hovertemplate: '위험: %{x:.2f}%<br>기대 수익: %{y:.2f}%<extra></extra>'
+            };
+
+            const minTrace = {
+                x: [minPortfolio.risk],
+                y: [minPortfolio.return],
+                mode: 'markers',
+                type: 'scatter',
+                name: '최소 변동성 포트폴리오',
+                marker: {
+                    color: '#238b45',
+                    size: 10,
+                    symbol: 'diamond'
+                },
+                hovertemplate: '위험: %{x:.2f}%<br>기대 수익: %{y:.2f}%<extra>최소 변동성</extra>'
+            };
+
+            const maxTrace = {
+                x: [maxPortfolio.risk],
+                y: [maxPortfolio.return],
+                mode: 'markers',
+                type: 'scatter',
+                name: '최대 샤프 포트폴리오',
+                marker: {
+                    color: '#d94801',
+                    size: 10,
+                    symbol: 'star'
+                },
+                hovertemplate: '위험: %{x:.2f}%<br>기대 수익: %{y:.2f}%<extra>최대 샤프</extra>'
+            };
+
+            const assetTrace = {
+                x: assets.map(asset => asset.risk),
+                y: assets.map(asset => asset.return),
+                mode: 'markers+text',
+                type: 'scatter',
+                name: '개별 자산',
+                text: assets.map(asset => asset.ticker),
+                textposition: 'top center',
+                marker: {
+                    color: '#6a51a3',
+                    size: 9,
+                    symbol: 'square'
+                },
+                hovertemplate: '%{text}<br>위험: %{x:.2f}%<br>기대 수익: %{y:.2f}%<extra></extra>'
+            };
+
+            const layout = {
+                title: '효율적 투자선 (Efficient Frontier)',
+                xaxis: {
+                    title: '연간 변동성 (%)'
+                },
+                yaxis: {
+                    title: '연간 기대 수익률 (%)'
+                },
+                legend: {
+                    orientation: 'h',
+                    x: 0,
+                    y: -0.2
+                },
+                margin: { t: 50, r: 20, b: 80, l: 60 },
+                hovermode: 'closest'
+            };
+
+            Plotly.newPlot('frontier-chart', [frontierTrace, assetTrace, minTrace, maxTrace], layout, {
+                responsive: true,
+                displaylogo: false,
+            });
+        });
+    </script>
+</head>
+<body>
+    <header>
+        <h1>포트폴리오 효율적 투자선 대시보드</h1>
+        <p>세 자산(삼성전자, Apple, NVIDIA)의 일별 종가 데이터를 활용하여 연간 기대수익과 위험(변동성)을 기반으로 효율적 투자선을 계산했습니다. 샤프 비율이 가장 높은 포트폴리오와 변동성이 가장 낮은 포트폴리오를 함께 표시합니다.</p>
+    </header>
+
+    <main>
+        <section class="chart-section">
+            <div id="frontier-chart" class="chart"></div>
+        </section>
+
+        <section class="portfolio-cards">
+            <article>
+                <h2>최소 변동성 포트폴리오</h2>
+                <p><strong>기대 수익률:</strong> {{ '{:.2f}'.format(min_portfolio.return) }}%</p>
+                <p><strong>연간 변동성:</strong> {{ '{:.2f}'.format(min_portfolio.risk) }}%</p>
+                <p><strong>샤프 비율:</strong> {{ '{:.2f}'.format(min_portfolio.sharpe) }}</p>
+                <table>
+                    <thead>
+                        <tr>
+                            <th>티커</th>
+                            <th>비중</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for ticker, weight in min_portfolio.weights.items() %}
+                        <tr>
+                            <td>{{ ticker }}</td>
+                            <td>{{ '{:.1f}'.format(weight * 100) }}%</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </article>
+
+            <article>
+                <h2>최대 샤프 포트폴리오</h2>
+                <p><strong>기대 수익률:</strong> {{ '{:.2f}'.format(max_portfolio.return) }}%</p>
+                <p><strong>연간 변동성:</strong> {{ '{:.2f}'.format(max_portfolio.risk) }}%</p>
+                <p><strong>샤프 비율:</strong> {{ '{:.2f}'.format(max_portfolio.sharpe) }}</p>
+                <table>
+                    <thead>
+                        <tr>
+                            <th>티커</th>
+                            <th>비중</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for ticker, weight in max_portfolio.weights.items() %}
+                        <tr>
+                            <td>{{ ticker }}</td>
+                            <td>{{ '{:.1f}'.format(weight * 100) }}%</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </article>
+        </section>
+
+        <section class="data-section">
+            <h2>시장 데이터 요약</h2>
+            <p>가정한 연간 무위험 수익률: <strong>{{ '{:.2f}'.format(risk_free_rate) }}%</strong></p>
+            <h3>최근 종가</h3>
+            <table>
+                <thead>
+                    <tr>
+                        <th>티커</th>
+                        <th>최근 종가</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for ticker in tickers %}
+                    <tr>
+                        <td>{{ ticker }}</td>
+                        <td>{{ '{:,.2f}'.format(latest_prices[ticker]) }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </section>
+    </main>
+
+    <footer>
+        <p>데이터 출처: <code>temp.csv</code>. 효율적 투자선은 4,000개의 무작위 포트폴리오를 기반으로 추정되었습니다.</p>
+    </footer>
+</body>
+</html>

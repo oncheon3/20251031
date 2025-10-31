@@ -79,3 +79,11 @@ for row in rows:
 ```
 
 The resulting `values` dictionary can be used to calculate counts, means, minimums, maximums, and any additional analytics required.
+
+## Efficient Frontier Web App
+
+An interactive Flask dashboard renders the efficient frontier based on the same dataset. To run it locally:
+
+1. Install dependencies: `pip install -r requirements.txt`
+2. Start the development server: `python app.py`
+3. Open your browser at http://localhost:5000 to explore the chart and portfolio breakdowns.
